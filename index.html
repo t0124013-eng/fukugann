@@ -1,0 +1,849 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<title>複眼ノート</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Murecho:wght@500;700;800&family=BIZ+UDPGothic:wght@400;700&family=Zen+Old+Mincho:wght@400;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+/* Layout: 1カラムのノート。セットと週を選び、週ごとの記入欄とタイマー。4週目は前3週の材料を横に置いて小論文を書く。PDFは紙の配色で別に組む。 */
+:root{
+  --bg:#f7f9fc; --surface:#ffffff; --ink:#13233f; --muted:#5b6a82; --line:#dbe2ec;
+  --accent:#1e3a6e; --accent-ink:#ffffff; --accent-soft:#e9eef7;
+  --w1:#1b2d55; --w1-soft:#e8ecf4;
+  --w2:#2e5c9e; --w2-soft:#e7eff9;
+  --w3:#5b7db8; --w3-soft:#eef2f9;
+  --w4:#a87a22; --w4-soft:#faf3e3;
+  --warn:#b42318; --ok:#2f7d4f;
+  --f-display:"Murecho","Hiragino Sans","Yu Gothic",sans-serif;
+  --f-body:"BIZ UDPGothic","Hiragino Sans","Yu Gothic",sans-serif;
+  --f-essay:"Zen Old Mincho","Hiragino Mincho ProN","Yu Mincho",serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1829; --surface:#16223a; --ink:#e8eef7; --muted:#9fb0c9; --line:#2a3b5a;
+  --accent:#8fb0e6; --accent-ink:#0f1829; --accent-soft:#1d2e4f;
+  --w1:#9fb4dc; --w1-soft:#1c2a46; --w2:#7aa6e6; --w2-soft:#1a2c4a; --w3:#a9c0e8; --w3-soft:#1f2e4a; --w4:#e3bf6e; --w4-soft:#33291a;
+  --warn:#ff8a7f; --ok:#7fd3a0; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1829; --surface:#16223a; --ink:#e8eef7; --muted:#9fb0c9; --line:#2a3b5a;
+  --accent:#8fb0e6; --accent-ink:#0f1829; --accent-soft:#1d2e4f;
+  --w1:#9fb4dc; --w1-soft:#1c2a46; --w2:#7aa6e6; --w2-soft:#1a2c4a; --w3:#a9c0e8; --w3-soft:#1f2e4a; --w4:#e3bf6e; --w4-soft:#33291a;
+  --warn:#ff8a7f; --ok:#7fd3a0; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.7}
+.wrap{max-width:900px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 64px;display:flex;flex-direction:column;gap:16px}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;margin:0;line-height:1.35}
+header.top{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand h1{font-size:1.65rem;font-weight:800}
+.brand p{margin:0;color:var(--muted);font-size:.86rem}
+.tabs{display:flex;gap:4px;background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:4px}
+.tabs button{border:0;background:transparent;color:var(--muted);font:700 .86rem var(--f-body);padding:6px 14px;border-radius:999px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--ink);color:var(--bg)}
+button:focus-visible,select:focus-visible,textarea:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px}
+label.lbl,.lbl{display:block;font-size:.76rem;font-weight:700;letter-spacing:.06em;color:var(--muted);margin-bottom:4px}
+select,input[type=text],textarea{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+textarea{min-height:92px;resize:vertical;line-height:1.65}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.row>*{flex:1 1 200px;min-width:0}
+.btn{font:700 .9rem var(--f-body);border-radius:10px;padding:9px 16px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.ghost{background:transparent}
+.btn.danger{color:var(--warn);border-color:var(--warn);background:transparent}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.note{font-size:.8rem;color:var(--muted);margin:0}
+.toast{font-size:.86rem;color:var(--accent);font-weight:700}
+details.profile summary{cursor:pointer;font-weight:700;font-size:.9rem}
+details.profile[open] summary{margin-bottom:12px}
+
+/* 週ステッパー */
+.weeks{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.wk{border:1px solid var(--line);background:var(--surface);border-radius:12px;padding:10px 12px;text-align:left;cursor:pointer;color:var(--ink);font:inherit;display:flex;flex-direction:column;gap:2px;min-width:0}
+.wk b{font-family:var(--f-mono);font-size:.78rem;letter-spacing:.06em}
+.wk span{font-family:var(--f-display);font-weight:700;font-size:.92rem;line-height:1.35}
+.wk small{font-size:.74rem;color:var(--muted)}
+.wk[aria-current="true"]{border-width:2px;padding:9px 11px}
+.wk.c1 b{color:var(--w1)} .wk.c2 b{color:var(--w2)} .wk.c3 b{color:var(--w3)} .wk.c4 b{color:var(--w4)}
+.wk.c1[aria-current="true"]{border-color:var(--w1);background:var(--w1-soft)}
+.wk.c2[aria-current="true"]{border-color:var(--w2);background:var(--w2-soft)}
+.wk.c3[aria-current="true"]{border-color:var(--w3);background:var(--w3-soft)}
+.wk.c4[aria-current="true"]{border-color:var(--w4);background:var(--w4-soft)}
+.wk .done{color:var(--ok);font-weight:700}
+@media (max-width:560px){.weeks{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* 今週の題材 */
+.brief{display:flex;flex-direction:column;gap:12px}
+.chip{display:inline-flex;font:700 .8rem var(--f-display);padding:3px 10px;border-radius:999px;width:fit-content}
+.q-box{border-left:5px solid currentColor;border-radius:10px;padding:10px 14px}
+.q-box input{background:transparent;border:0;padding:4px 0;font:700 1.08rem var(--f-display);color:var(--ink)}
+.facts{margin:0;padding-left:1.2em}
+.hint{font-size:.88rem;color:var(--muted);margin:0}
+
+/* 記入欄 */
+.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.fields .wide{grid-column:span 2}
+.fields>div{min-width:0}
+@media (max-width:640px){.fields{grid-template-columns:1fr}.fields .wide{grid-column:auto}}
+.save-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+.fhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.fhead .lbl{margin-bottom:2px}
+.desc{font-size:.84rem;color:var(--muted);margin:0 0 6px;line-height:1.6}
+.hint-btn{border:1px solid var(--line);background:var(--surface);color:var(--accent);font:700 .76rem var(--f-body);cursor:pointer;padding:2px 10px;border-radius:999px;white-space:nowrap}
+.hint-btn[aria-expanded="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.hintbox{background:var(--accent-soft);border-radius:10px;padding:10px 14px;margin-bottom:8px;font-size:.86rem;line-height:1.65}
+.hintbox ul{margin:4px 0 0;padding-left:1.2em}
+.hintbox .ex{margin-top:8px;border-top:1px dashed var(--line);padding-top:8px}
+.hintbox .ex p{margin:2px 0 0;white-space:pre-wrap}
+.goal{border-left:4px solid var(--accent);padding:4px 0 4px 12px;margin-bottom:14px}
+.goal b{font-family:var(--f-display);font-size:.9rem}
+.goal p{margin:2px 0 0;font-size:.92rem}
+.memo{grid-template-columns:1fr!important}
+.fixed-src{margin:0;font-weight:700}
+.fixed-q{margin:0;font:700 1.05rem/1.6 var(--f-display);color:var(--ink)}
+.ex-note{margin:0 0 12px;padding:10px 14px;border-radius:10px;background:var(--w4-soft);color:var(--ink);font-size:.88rem}
+textarea[readonly]{background:var(--surface);color:var(--ink)}
+.btn.nikkei{display:inline-flex;align-items:center;gap:6px;text-decoration:none;background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.btn.nikkei::after{content:"↗";font-size:.85em}
+/* 小論文 */
+.essay-grid{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:14px;align-items:start}
+@media (max-width:760px){.essay-grid{grid-template-columns:1fr}}
+.material{display:flex;flex-direction:column;gap:10px;max-height:640px;overflow:auto}
+.mat{border-left:3px solid var(--line);padding-left:10px}
+.mat h4{margin:0;font:700 .78rem var(--f-display);color:var(--muted)}
+.mat p{margin:0;font-size:.88rem;white-space:pre-wrap}
+.mat.c1{border-color:var(--w1)} .mat.c2{border-color:var(--w2)} .mat.c3{border-color:var(--w3)}
+.memo{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.memo textarea{min-height:64px;font-size:.9rem}
+#essay{font-family:var(--f-essay);font-size:1.05rem;line-height:1.95;min-height:300px}
+.count{font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-size:.9rem}
+.count.over{color:var(--warn)} .count.ok{color:var(--ok)}
+
+/* TOP */
+.eyebrow-s{margin:0;font:700 .76rem var(--f-mono);letter-spacing:.16em;color:var(--accent)}
+.hero{display:flex;flex-direction:column;gap:8px;padding-block:8px 4px}
+.hero h1{font-size:2.2rem;font-weight:800;letter-spacing:.02em}
+.hero .lead{margin:0;max-width:40em;color:var(--muted)}
+.flow4{list-style:none;margin:8px 0 0;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.flow4 li{display:flex;flex-direction:column;gap:2px;border-top:3px solid var(--line);padding-top:6px;min-width:0}
+.flow4 li:nth-child(1){border-color:var(--w1)} .flow4 li:nth-child(2){border-color:var(--w2)} .flow4 li:nth-child(3){border-color:var(--w3)} .flow4 li:nth-child(4){border-color:var(--w4)}
+.flow4 b{font:600 .7rem var(--f-mono);letter-spacing:.08em;color:var(--muted)}
+.flow4 span{font:700 .9rem var(--f-display)}
+@media (max-width:520px){.flow4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.list-h{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}
+.list-h h2{font-size:1.05rem}
+.list-h span{font-size:.8rem;color:var(--muted)}
+.tgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.tcard{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0;cursor:pointer;text-align:left;color:var(--ink);font:inherit;transition:border-color .15s,transform .15s}
+.tcard:hover{border-color:var(--accent);transform:translateY(-2px)}
+.tcard:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.tcard .st{font:700 .74rem var(--f-body);width:fit-content;padding:2px 9px;border-radius:999px;background:var(--bg);color:var(--muted)}
+.tcard .st.go{background:var(--accent-soft);color:var(--accent)}
+.tcard .st.ex{background:var(--w4-soft);color:var(--w4)}
+.tcard .st.fin{background:var(--w4-soft);color:var(--ok)}
+.tcard h3{font-size:1.08rem;line-height:1.45}
+.tcard .src{font-size:.82rem;color:var(--muted);margin:0;line-height:1.55;flex:1}
+.tcard .bar{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.tcard .bar i{height:6px;border-radius:3px;background:var(--line)}
+.tcard .bar i.on1{background:var(--w1)} .tcard .bar i.on2{background:var(--w2)} .tcard .bar i.on3{background:var(--w3)} .tcard .bar i.on4{background:var(--w4)}
+.tcard.add{border-style:dashed;align-items:center;justify-content:center;color:var(--accent);font-weight:700;min-height:150px}
+.card-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.card-actions .btn{padding:5px 12px;font-size:.8rem}
+/* テーマの中 */
+.set-bar{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.set-title h2{font-size:1.5rem;font-weight:800}
+.finish{display:flex;flex-direction:column;gap:12px}
+.finish.done{border-color:var(--w4);box-shadow:0 0 0 3px var(--w4-soft)}
+.finish-h{display:flex;flex-direction:column;gap:2px}
+.finish-h b{font-family:var(--f-display);font-size:1.05rem}
+.checks{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.checks li{font-size:.84rem;padding:4px 12px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
+.checks li.ok{border-color:var(--ok);color:var(--ok);font-weight:700}
+.checks li.ok::before{content:"✓ "}
+/* セット一覧 */
+.set-card{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);padding-block:14px}
+.set-card:first-child{border-top:0;padding-top:0}
+.set-h{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+.set-h strong{font-family:var(--f-display);font-size:1.1rem}
+.prog{display:flex;gap:4px}
+.prog i{width:28px;height:8px;border-radius:3px;background:var(--line)}
+.prog i.on{background:var(--ok)}
+.confirm{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:.86rem}
+
+/* PDF用の紙面（画面外で組む。紙なのでテーマに依存しない固定色） */
+#paper{position:fixed;left:-12000px;top:0;width:794px;pointer-events:none}
+.pg{width:794px;min-height:1123px;background:#ffffff;color:#1b2430;font-family:"BIZ UDPGothic","Hiragino Sans",sans-serif;position:relative;padding:64px 64px 88px;display:flex;flex-direction:column;gap:22px;font-size:12.5px;line-height:1.75}
+.pg *{box-sizing:border-box}
+.pg .run{position:absolute;left:64px;right:64px;top:28px;display:flex;justify-content:space-between;font-size:9.5px;letter-spacing:.12em;color:#7a8592}
+.pg .foot{position:absolute;left:64px;right:64px;bottom:34px;display:flex;justify-content:space-between;align-items:center;font-size:9.5px;color:#7a8592;border-top:1px solid #dfe4ea;padding-top:10px}
+.pg .foot b{font-family:"IBM Plex Mono",monospace;color:#1b2430;font-weight:600}
+.pg h2{font-family:"Murecho",sans-serif;font-weight:800;font-size:26px;line-height:1.3;margin:0;color:#13233f}
+.pg .eyebrow{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.2em;font-weight:600}
+.pg .wkhead{display:flex;align-items:flex-end;gap:18px;padding-bottom:16px;border-bottom:2px solid #13233f}
+.pg .wknum{font-family:"Murecho",sans-serif;font-weight:800;font-size:64px;line-height:.9}
+.pg .wkmeta{display:flex;flex-direction:column;gap:4px;flex:1}
+.pg .wkdate{font-family:"IBM Plex Mono",monospace;font-size:10.5px;color:#7a8592}
+.pg .qcard{border-radius:8px;padding:14px 18px;display:flex;flex-direction:column;gap:6px}
+.pg .qcard .t{font-size:10.5px;font-weight:700;letter-spacing:.08em}
+.pg .qcard .src{font-size:12px;color:#3d4855}
+.pg .qcard .q{font-family:"Murecho",sans-serif;font-weight:700;font-size:16px;line-height:1.55;color:#13233f}
+.pg .grid{display:flex;flex-wrap:wrap;gap:14px 22px}
+.pg .blk{width:322px;min-width:0}
+.pg .blk.wide{width:100%}
+.pg .blk .k{margin-bottom:6px}
+.pg .blk .k{display:flex;align-items:center;gap:8px;font-size:10.5px;font-weight:700;letter-spacing:.06em;color:#4a5563}
+.pg .blk .k i{display:inline-block;width:14px;height:3px;border-radius:2px}
+.pg .blk .v{white-space:pre-wrap;word-break:break-word;border:1px solid #e3e8ee;background:#f7f9fb;border-radius:6px;padding:10px 12px;min-height:44px}
+.pg .blk .v.empty{color:#a2acb7}
+.pg .stance{border:1.5px solid #13233f;border-radius:8px;padding:14px 18px;display:flex;flex-direction:column;gap:4px}
+.pg .stance .k{font-size:10.5px;font-weight:700;letter-spacing:.08em}
+.pg .stance .v{font-family:"Murecho",sans-serif;font-weight:700;font-size:14px;line-height:1.6;white-space:pre-wrap}
+/* 表紙 */
+.pg.cover{padding:0;gap:0}
+.cv-top{background:#13233f;color:#eef2f6;padding:72px 64px 56px;position:relative;overflow:hidden;min-height:520px;display:flex;flex-direction:column;gap:18px;justify-content:flex-end}
+.cv-ring{position:absolute;border-radius:50%;border:3px solid}
+.cv-top .lab{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.24em;color:#8fb4ea;position:absolute;top:56px;left:64px}
+.cv-top h1{font-family:"Murecho",sans-serif;font-weight:800;font-size:40px;line-height:1.3;margin:0;color:#ffffff;max-width:600px}
+.cv-top .sub{font-size:13px;color:#b9c6d3;max-width:560px}
+.cv-body{padding:40px 64px 96px;display:flex;flex-direction:column;gap:28px;flex:1}
+.cv-info{display:flex;flex-wrap:wrap;border-top:1px solid #13233f}
+.cv-info div{width:546px}
+.cv-info div.k{width:120px}
+.cv-info div{padding:10px 0;border-bottom:1px solid #dfe4ea;font-size:13px}
+.cv-info .k{font-size:10.5px;font-weight:700;letter-spacing:.1em;color:#7a8592;padding-top:12px}
+.cv-flow{display:flex;gap:10px}
+.cv-flow .cv-step{flex:1 1 0;min-width:0}
+.cv-step{border-top:4px solid;padding-top:10px;display:flex;flex-direction:column;gap:4px}
+.cv-step b{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.14em}
+.cv-step span{font-family:"Murecho",sans-serif;font-weight:700;font-size:13px;line-height:1.4;color:#13233f}
+.cv-step small{font-size:10px;color:#7a8592}
+.pg.essaypg{gap:14px}
+.cv-abs{border-left:4px solid #a87a22;padding:2px 0 2px 16px;display:flex;flex-direction:column;gap:4px}
+.cv-abs .k{font-size:10.5px;font-weight:700;letter-spacing:.1em;color:#a87a22}
+.cv-abs .v{font-family:"Zen Old Mincho",serif;font-size:15px;line-height:1.8;color:#13233f}
+.pg .srcs{margin-top:auto;border-top:1px solid #dfe4ea;padding-top:10px;font-size:9.5px;color:#4a5563;line-height:1.5}
+.pg .srcs b{display:block;font-size:9.5px;letter-spacing:.1em;color:#7a8592;margin-bottom:4px}
+.pg .srcs div{margin-bottom:4px}
+.pg .srcs span{font-family:"IBM Plex Mono",monospace;color:#7a8592;word-break:break-all}
+/* 2週を1枚に収める紙面 */
+.pg.pair{gap:0;padding:58px 56px 76px}
+.pg.pair .run,.pg.pair .foot{left:56px;right:56px}
+.pg.pair .sec{display:flex;flex-direction:column;gap:9px}
+.pg.pair .sec-rule{height:1px;background:#dfe4ea;margin:16px 0}
+.pg.pair .wkhead{gap:12px;padding-bottom:8px;border-bottom-width:1.5px}
+.pg.pair .wknum{font-size:40px}
+.pg.pair h2{font-size:18px}
+.pg.pair .eyebrow{font-size:9.5px}
+.pg.pair .qcard{padding:8px 14px;gap:3px;border-radius:6px}
+.pg.pair .qcard .t{display:inline-block;width:34px;font-size:9.5px;font-weight:700;letter-spacing:.06em}
+.pg.pair .qcard .src{font-size:11px}
+.pg.pair .qcard .q{font-size:13px;line-height:1.5}
+.pg.pair .grid{gap:9px 18px}
+.pg.pair .blk{width:332px}
+.pg.pair .blk.wide{width:100%}
+.pg.pair .blk .k{font-size:9.5px;margin-bottom:3px}
+.pg.pair .blk .v{font-size:11px;line-height:1.6;padding:6px 10px;min-height:30px}
+.pg.pair .stance{padding:8px 14px}
+.pg.pair .stance .k{font-size:9.5px}
+.pg.pair .stance .v{font-size:12.5px;line-height:1.55}
+.pg.pair .prompt{padding:9px 16px}
+.pg.pair .prompt .q{font-size:12.5px;line-height:1.55}
+.pg.pair .memo4 div{font-size:10px;padding:6px 8px;min-height:0}
+.pg.pair .essay{font-size:12.5px;line-height:25px;padding:10px 18px;min-height:0;background-image:repeating-linear-gradient(to bottom,transparent 0,transparent 24px,#e6ebf0 24px,#e6ebf0 25px);background-position:0 10px}
+.pg.pair .ecount{font-size:9.5px}
+/* 小論文ページ */
+.pg .prompt{background:#13233f;color:#eef2f6;border-radius:8px;padding:14px 20px}
+.pg .prompt .t{margin-bottom:4px;font-size:10.5px;font-weight:700;letter-spacing:.1em;color:#e3c27a}
+.pg .prompt .q{font-family:"Murecho",sans-serif;font-weight:700;font-size:14.5px;line-height:1.6}
+.pg .essay{font-family:"Zen Old Mincho",serif;font-size:13.5px;line-height:28px;white-space:pre-wrap;word-break:break-word;padding:18px 22px;border:1px solid #d6dde4;border-radius:6px;background-image:repeating-linear-gradient(to bottom,transparent 0,transparent 27px,#e6ebf0 27px,#e6ebf0 28px);background-position:0 14px;padding:14px 22px;min-height:300px}
+.pg .ecount{display:flex;justify-content:space-between;font-size:10.5px;color:#7a8592}
+.pg .ecount b{font-family:"IBM Plex Mono",monospace;color:#13233f}
+.pg table.rub{width:100%;border-collapse:collapse;font-size:11.5px}
+.pg table.rub th{background:#13233f;color:#eef2f6;font-weight:700;text-align:left;padding:7px 10px;font-size:10.5px;letter-spacing:.06em}
+.pg table.rub td{border-bottom:1px solid #dfe4ea;padding:8px 10px;vertical-align:middle}
+.pg .abc{display:flex;gap:6px}
+.pg .abc span{width:22px;height:22px;border:1px solid #9aa6b2;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-family:"IBM Plex Mono",monospace;font-size:10px;color:#4a5563}
+.pg .tbox{border:1px solid #9aa6b2;border-radius:6px;height:60px;padding:8px 10px;font-size:10px;color:#7a8592}
+.pg .memo4{display:flex;gap:8px}
+.pg .memo4 div{flex:1 1 0;min-width:0}
+.pg .memo4 div{border-top:3px solid #a87a22;background:#f4f6fb;padding:8px 10px;font-size:10.5px;line-height:1.6;white-space:pre-wrap;word-break:break-word;min-height:56px}
+.pg .memo4 b{display:block;font-size:9.5px;color:#a87a22;letter-spacing:.06em;margin-bottom:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <!-- TOP：テーマ選択 -->
+  <section id="view-top" style="display:flex;flex-direction:column;gap:20px">
+    <header class="hero">
+      <p class="eyebrow-s">朝礼 × 日経電子版</p>
+      <h1>複眼ノート</h1>
+      <p class="lead">1つのテーマを4週かけて掘り下げ、4週目に自分の考えを400字の小論文にまとめます。取り組むテーマを選んでください。</p>
+      <ol class="flow4">
+        <li><b>WEEK 1</b><span>事実と論点の地図</span></li>
+        <li><b>WEEK 2</b><span>利害の分析</span></li>
+        <li><b>WEEK 3</b><span>線引きと反対側</span></li>
+        <li><b>WEEK 4</b><span>小論文 400字</span></li>
+      </ol>
+    </header>
+
+    <div class="panel">
+      <details class="profile" id="profile">
+        <summary>名前・探究テーマ（PDFの表紙に入ります）</summary>
+        <div class="row">
+          <div><label class="lbl" for="p-name">氏名</label><input type="text" id="p-name"></div>
+          <div style="flex:0 1 120px"><label class="lbl" for="p-class">クラス</label><input type="text" id="p-class" placeholder="例：2-1"></div>
+          <div style="flex:0 1 90px"><label class="lbl" for="p-no">番号</label><input type="text" id="p-no"></div>
+        </div>
+        <div style="margin-top:10px"><label class="lbl" for="p-theme">自分の探究テーマ</label><input type="text" id="p-theme" placeholder="例：商店街の空き店舗を若者の拠点にする"></div>
+      </details>
+    </div>
+
+    <div id="top-lists" style="display:flex;flex-direction:column;gap:22px"></div>
+
+    <div class="panel" id="new-set" hidden>
+      <label class="lbl" for="new-title">テーマ名（先生が示したもの）</label>
+      <div class="row" style="align-items:center">
+        <div><input type="text" id="new-title" placeholder="例：再生可能エネルギーと電気代"></div>
+        <div style="flex:0 0 auto;display:flex;gap:8px"><button class="btn primary" id="new-ok">作成して始める</button><button class="btn ghost" id="new-cancel">やめる</button></div>
+      </div>
+    </div>
+    <p class="note">入力は自動でこの端末に保存されます。4週目の小論文まで書き終えると「完成」になり、成果レポート（A4・3ページ）をPDFで書き出せます。</p>
+  </section>
+
+  <!-- テーマの中 -->
+  <section id="view-set" hidden style="display:flex;flex-direction:column;gap:16px">
+    <div class="set-bar">
+      <button class="btn ghost" id="back">← テーマ一覧へ</button>
+      <span class="toast" id="toast" aria-live="polite"></span>
+    </div>
+    <header class="set-title"><p class="eyebrow-s" id="set-kind"></p><h2 id="set-name"></h2></header>
+    <nav class="weeks" id="weeks" aria-label="週の選択"></nav>
+    <article class="panel brief" id="brief"></article>
+    <div class="panel" id="work"></div>
+    <div class="panel finish" id="finish" hidden>
+      <div class="finish-h"><b id="finish-title">完成チェック</b><span class="note" id="finish-sub"></span></div>
+      <ul class="checks" id="checks"></ul>
+      <div class="save-row"><button class="btn primary" id="pdf-btn" disabled>完成！成果レポートをPDFで書き出す</button><span class="toast" id="pdf-msg"></span></div>
+    </div>
+  </section>
+</div>
+
+<div id="paper" aria-hidden="true"></div>
+
+<script>
+// ---------- 週の設計 ----------
+const WEEKS={
+ 1:{role:"事実と論点の地図",lens:"事実の把握",short:"論点の地図",
+    q:"このニュースで何が起きていて、誰が関係しているか？",
+    fields:[["fact","記事が伝えている事実・数字（自分の言葉で）",true],["actors","関係する人・組織と、それぞれの立場"],["issue","気になった論点・疑問"],["peer","ピアで出た、自分になかった視点",true]],
+    phases:[["記事・テーマ提示",2],["個人思考",5],["ピア・ディスカッション",6],["総括・接続",2]]},
+ 2:{role:"利害の分析",lens:"① 構造化・トレードオフ型",short:"利害の分析",
+    q:"この変化で最も得をする層と、割を食う層は誰か？",
+    fields:[["gain","得をする層と、その理由"],["loss","割を食う層と、その理由"],["axis","最も大きい対立軸を1つに絞ると",true],["peer","ピアで出た、自分になかった視点"],["stance","現時点の自分の立場（条件付きで）"]],
+    phases:[["記事・テーマ提示",2],["個人思考",5],["ピア・ディスカッション",6],["総括・接続",2]]},
+ 3:{role:"線引きと反対側",lens:"② 倫理・グレーゾーン型",short:"線引きと反論",
+    q:"どこまでなら認められるか。反対の立場の最も強い主張は何か？",
+    fields:[["line","自分が引く線と、その理由",true],["counter","反対の立場の、最も強い主張"],["reply","それに対する自分の応答"],["peer","ピアで出た、自分になかった視点",true]],
+    phases:[["記事・テーマ提示",2],["個人思考",5],["ピア・ディスカッション",6],["総括・接続",2]]},
+ 4:{role:"小論文",lens:"③ マクロ×ミクロ接続型",short:"小論文 400字",
+    phases:[["設問の確認",1],["構成メモ",2],["執筆",11],["見直し・字数確認",1]]}
+};
+const MEMO=[["m1","主張","条件付きの結論"],["m2","根拠","第1・2週の事実と利害"],["m3","反論と応答","第3週の線引き・反対側"],["m4","結論と探究","5年後・自分の探究へ"]];
+const LIMIT=400;
+// 各記入欄の説明（d）と、つまずいたときのヒント（h）。
+const PEER={d:"話し合いで出た、自分が思いつかなかった意見を、誰の立場からの意見かと一緒に書く。",
+  h:["相手に「それは誰の立場で考えた？」と聞いてみる","自分と反対の意見ほど、メモする価値がある","書き方例：「Aさん：〜の立場から、〜という意見」"]};
+const GOAL={
+ 1:"記事に何が書いてあるかと、誰が関係しているかを整理し、「ここが気になる」という論点を見つける週です。意見はまだ決めなくて構いません。",
+ 2:"この変化で得をする人と割を食う人を分け、対立の軸を一つに絞り、自分の立場を仮に決める週です。",
+ 3:"「どこまでなら認められるか」の線を自分で引き、反対側のいちばん強い主張に答える週です。ここで書いたことが小論文の第3段落になります。",
+ 4:"第1〜3週の記入を材料に、設問に答える400字の文章を書きます。新しく考えるのではなく、これまでの記入を並べ直して文章にする回です。"
+};
+const HELP={
+ 1:{fact:{d:"記事に書いてある事実（いつ・誰が・何をした・どのくらい）を、自分の言葉で2〜3文にまとめる。自分の意見はまだ入れない。",
+          h:["見出しと最初の段落に、答えが書いてあることが多い","「いつ・誰が・何を・どのくらい（数字）」の4つを埋めてみる","書き出し例：「〇月、〇〇が〜した。これは〜以来で、〜が狙いだ」"]},
+    actors:{d:"このニュースに関係する人・組織を3つ以上挙げ、それぞれが何を望んでいるか（立場）を一言で書く。",
+          h:["「決める人」「お金を払う人」「お金を受け取る人」「影響を受ける人」の4種類で探す","記事に出てこない人（消費者、若い世代、地方、海外）も考える","書き方例：「〇〇：〜したい」「〇〇：〜が増えて困る」"]},
+    issue:{d:"読んで「本当にそう？」「それは誰にとって？」と引っかかった点を、疑問の形で書く。",
+          h:["「〜は良いことなのか」「〜は誰にとって得なのか」の形にしてみる","記事の内容と、自分や家族の生活の実感がずれる点を探す","書き出し例：「〜とあるが、〜の立場から見ると〜ではないか」"]},
+    peer:PEER},
+ 2:{gain:{d:"この変化で得をする人・組織を挙げ、なぜ得をするのかを理由とセットで書く。",
+          h:["お金・時間・安全・選択肢のうち、どれが増える人かを考える","すぐに得をする人と、長い目で見て得をする人を分けてみる","書き方例：「〇〇。なぜなら〜が増えるから」"]},
+    loss:{d:"負担が増える人・選択肢が減る人を挙げ、理由とセットで書く。目立たない人も探す。",
+          h:["費用を最終的に払うのは誰か、をたどる（企業 → 商品の値段 → 消費者 など）","声を上げにくい人（子ども、将来の世代、地方、小さな会社）を考える","書き方例：「〇〇。〜の負担が増え、〜できなくなるから」"]},
+    axis:{d:"得をする側と割を食う側の対立を、「AとBの対立」の形で一つにまとめる。",
+          h:["よくある軸：世代（若者と高齢者）、地域（都市と地方）、規模（大企業と中小企業）、立場（売る側と買う側）","いちばん大きな損得が生まれている二者を選ぶ","書き方例：「〜を持つ層と、〜を持たない層の対立」"]},
+    peer:PEER,
+    stance:{d:"今の時点での自分の考えを「〜と考える。ただし〜なら考えを変える」の形で書く。正解である必要はない。",
+          h:["どちらの側の損を重く見るかで、立場が決まる","条件をつけると、考えが変わる境目がはっきりする","書き出し例：「私は〜に賛成だ。ただし、〜の場合は反対する」"]}},
+ 3:{line:{d:"「全部認める」と「全部認めない」の間のどこで線を引くかを決め、その理由を書く。",
+          h:["まず両端を書き出し、その間に具体的な場面を3つほど並べてみる","線の基準は「目的」「程度」「回数」「影響を受ける人」などで考える","書き方例：「〜まではよいが、〜は認められない。なぜなら〜」"]},
+    counter:{d:"自分と反対の立場の人が言いそうな、いちばん説得力のある主張を書く。弱い反論ではなく、強い反論を選ぶ。",
+          h:["自分の線で損をする人は誰か。その人なら何と言うか","第2週で自分が軽く見た側の言い分を思い出す","書き出し例：「しかし、〜の立場からは、〜という批判がありうる」"]},
+    reply:{d:"その反論の正しい部分を認めたうえで、それでも自分の考えを保つ理由、または考えを修正した点を書く。",
+          h:["まず反論の正しい部分を認める（「確かに〜」）","「その問題は〜という方法で対処できる」と別の手段を示す","書き出し例：「確かに〜。しかし、〜なので、〜と考える」"]},
+    peer:PEER},
+ 4:{m1:{d:"設問への答えを1文で書く。",h:["第2週の「自分の立場」を出発点にする","条件をつけると説得力が増す","例：「〜と考える。ただし〜が条件」"]},
+    m2:{d:"主張を支える事実と、誰にどんな影響があるか。",h:["第1週の事実から、数字か出来事を1つ選ぶ","第2週の「得をする層・割を食う層」を使う"]},
+    m3:{d:"第3週の反対側の主張と、それへの応答。",h:["「確かに〜。しかし〜」の形にする","第3週の「応答」をそのまま要約してよい"]},
+    m4:{d:"主張をもう一度述べ、自分の探究テーマとのつながりを書く。",h:["探究の「仮説」「調査する相手」「提案の前提」のどれに関わるかを考える","例：「探究の〜でも、〜を考える必要がある」"]},
+    essay:{d:"構成メモの4つを、それぞれ1段落にして書く。段落の始めは1字下げ、文末は「だ・である」にそろえる。",
+          h:["第1段落 主張：約60字","第2段落 根拠：約120字","第3段落 反論と応答：約120字","第4段落 結論と探究：約100字","書けなくなったら、材料欄の自分の言葉をそのまま文にしてよい"]}}
+};
+
+
+// テーマ10本（2026年10月時点の話題）。記事は先生が日経電子版から選び、生徒が題材欄に入力する。
+const ASK="第1〜3週で扱った事実と立場をふまえ、あなたの考えを400字以内で述べよ。その際、自分の探究テーマとの関係にも触れること。";
+const PRESETS=[
+ {id:"ex-rate",kw:"日銀 利上げ",links:[["日銀金融政策決定会合（2026年9月）の解説｜第一生命経済研究所", "https://www.dlri.co.jp/files/macro/665928.pdf"], ["日銀、9月利上げを検討（共同通信）", "https://kumanichi.com/articles/2031667"]],title:"金利のある世界",example:true,weeks:{
+  1:{src:"日銀、政策金利を1.25%に引き上げ（2026年9月）",facts:["日銀は9月の会合で政策金利を1.00%から1.25%へ引き上げた","6月の利上げから3カ月での追加利上げで、植田総裁の就任後で最も短い間隔","次の金融政策決定会合は10月29日。利上げのペースが焦点"],
+     v:{fact:"日銀は9月の会合で政策金利を1.00%から1.25%に上げた。6月から3カ月での追加利上げで、物価の上振れを警戒しての判断。10月29日の会合でも、さらに上げるかが議論されている。",
+        actors:"日銀：物価を2%程度で安定させたい\n政府：景気を冷やしたくない。国の借金の利払いが増える\n住宅ローンを組む家庭：返済額が増えうる\n預金のある高齢世帯：利息が増える\n企業：借入の負担が増え、投資に慎重に\n米国：円安を是正するため日本の利上げを求める",
+        issue:"利上げは物価を抑えるためだが、給料が物価ほど上がっていない今、家計にとってプラスなのかマイナスなのか。若い世代は「借りる側」になることが多いので不利なのではないか。",
+        peer:"Aさん：円安が止まれば輸入品が安くなり、生活が楽になる層もいる。\nBさん：国の借金の利払いが増えると、将来の増税や社会保障の削減として若い世代に返ってくる。"}},
+  2:{src:"金利上昇と家計・企業",q:"金利が上がると、最も得をする層と、割を食う層は誰か？",facts:["借りる側（住宅ローン、企業の借入、国の借金）と預ける側で影響が逆になる","円相場を通じて、輸入品の価格や留学費用にも波及する"],
+     v:{gain:"預金や債券を多く持つ高齢世帯。利息収入が増える。円安が和らげば輸入品の価格が下がり、消費者全体が得をする可能性もある。",
+        loss:"変動金利の住宅ローンを抱える子育て世帯、借入の多い中小企業。国の利払いが増えれば、将来その負担を担う若い世代も割を食う。",
+        axis:"「お金を持っている層」と「これから借りる層」の対立。資産のある高齢層と、借りて家を買い進学する若年層。",
+        peer:"奨学金は無利子や固定金利が多いので、影響は限定的ではという指摘があった。対立は世代ではなく「資産の有無」で分けるべきという意見も出た。",
+        stance:"物価が上がり続けるなら、緩やかな利上げは若い世代にも必要だと考える。ただし、賃金が物価に追いつかない状態で急に上げるなら反対。"}},
+  3:{src:"10月29日の日銀会合と、利上げペースをめぐる議論",q:"政府や海外は、日銀の判断にどこまで口を出してよいか？",facts:["9月初め、米財務長官が日本に金融緩和からの転換を求める発言をしたと報じられた","中央銀行には、政治から独立して金融政策を決める仕組みがある"],
+     v:{line:"意見を公に表明するまではよいが、人事や予算で日銀の判断を縛ることは許されない。金融政策は選挙の都合と切り離すべきだから。",
+        counter:"日銀も国民に選ばれていない組織であり、生活に大きく影響する判断を任せきりにするのは民主的でない。選挙で選ばれた政府が方向を示すべきだ。",
+        reply:"民主的な統制は必要だが、国会での説明責任や総裁人事の承認という形で確保できる。個々の利上げ判断に政治が介入すると、選挙前に金利を下げるなど短期的な判断に偏る。",
+        peer:"米国からの要求は内政干渉ではないかという意見と、円安は貿易相手国にも影響するので意見するのは自然だという意見に分かれた。"}},
+  4:{prompt:"日本で金利が上がり続けることは、若い世代にとって望ましいことか。"+ASK,
+     v:{m1:"緩やかな利上げは若い世代にも望ましい。条件は賃金上昇が伴うこと。",
+        m2:"物価上昇・円安への対応。得をするのは預金者、負担が増えるのは借りる若年層。",
+        m3:"反論：借りる側の若者に不利。応答：物価上昇の放置の方が実質賃金を下げる。",
+        m4:"空き店舗活用の探究。資金計画に金利の前提を入れる。",
+        essay:"　私は、日本で金利が緩やかに上がり続けることは、賃金の上昇が伴う限り、若い世代にとって望ましいと考える。\n　現在、日本では物価の上昇が続き、円安で輸入品も高くなっている。日銀が政策金利を一・二五％に引き上げたのは、この物価上昇を抑えるためだ。利上げで得をするのは預金を多く持つ高齢世帯であり、住宅ローンや借入を抱える若い世代は負担が増える。\n　確かに、これから借りる側になる若者にとって、利上げは不利に見える。しかし、金利を低く抑えたまま物価上昇を放置すれば、給料の実質的な価値が下がり続け、長い目で見れば若い世代の生活の方が苦しくなる。重要なのは急な引き上げを避け、賃上げと歩調を合わせることである。\n　私は探究で、商店街の空き店舗を若者の拠点にする提案を考えている。金利が上がる時代には借入の負担も増えるため、提案の資金計画に金利の前提を明記し、金利が変わっても続けられる計画にしたい。"}}}},
+ {id:"t-minwage",kw:"最低賃金",links:[["2026年度最賃、5%増の1177円に｜労政時評", "https://www.kaiketsu-j.com/?p=24308"], ["最低賃金の改定と中小企業支援｜ミラサポplus", "https://mirasapo-plus.go.jp/infomation/33677/"]],title:"最低賃金の大幅引き上げ",weeks:{
+  1:{src:"2026年度の最低賃金、全国平均1,177円に",facts:["全国加重平均で56円上がり1,177円。過去2番目の上げ幅","最高は東京都1,280円、最低は宮崎県1,085円で、差は195円","中小企業では、新しい最低賃金を下回る水準で働く人の割合が4割を超えるという試算もある"]},
+  2:{src:"最低賃金の引き上げと中小企業の人件費",q:"最低賃金の大幅な引き上げで、最も得をする層と、割を食う層は誰か？"},
+  3:{src:"地域ごとに最低賃金が違うことの是非",q:"最低賃金は全国一律にすべきか。地域差はどこまで認められるか？"},
+  4:{prompt:"最低賃金を今後も大幅に引き上げ続けるべきか。"+ASK}}},
+ {id:"t-ai",kw:"生成AI 規制",links:[["EU、AI法の執行を本格化（表示義務など）", "https://book.st-hakky.com/news/eu-gains-new-powerful-ai-regulation-auth"], ["日経コンピュータ 2026年10月1日号（AI出力文の電子透かし）", "https://xtech.nikkei.com/atcl/nxt/mag/nc/18/NC_backnumber/20261001/"]],title:"生成AIとルールづくり",weeks:{
+  1:{src:"EUでAI生成コンテンツの表示義務が始まる",facts:["EUは2026年8月から、ディープフェイクなどへのラベル表示や、チャットボットがAIであることの明示を求め始めた","日本政府が示した生成AI事業者向けの基本原則は、法的拘束力も罰則もない","海外の規制を受け、AIの出力文に電子透かしを入れる企業も出ている"]},
+  2:{src:"生成AIの規制と開発競争",q:"AIへの規制を強めると、最も得をする層と、割を食う層は誰か？"},
+  3:{src:"AI生成物の表示ルール",q:"「AIで作った」と表示させるべき線は、どこに引くべきか？"},
+  4:{prompt:"日本は生成AIに罰則つきの規制を設けるべきか。"+ASK}}},
+ {id:"t-kasuhara",kw:"カスハラ 義務化",links:[["カスハラ対策が2026年10月に義務化｜freee", "https://www.freee.co.jp/kb/kb-trend/customer-harassment-measures/"], ["カスハラ対策の義務化は2026年10月1日施行｜労務ドットコム", "https://roumu.com/archives/130568.html"]],title:"カスハラ対策の義務化",weeks:{
+  1:{src:"カスハラ対策が全企業の義務に（2026年10月1日施行）",facts:["改正労働施策総合推進法により、カスハラ防止の措置が事業主の義務になった","労働者を1人でも雇う事業主が対象で、中小企業も含まれる","義務違反への対応は行政指導・勧告で、刑事罰はない"]},
+  2:{src:"カスハラ対策と企業・顧客",q:"カスハラ対策の義務化で、最も得をする層と、割を食う層は誰か？"},
+  3:{src:"カスハラの定義と線引き",q:"「正当なクレーム」と「カスハラ」の線は、どこに引くべきか？"},
+  4:{prompt:"客の声を受け止めることと、働く人を守ることは両立できるか。"+ASK}}},
+ {id:"t-kosodate",kw:"子ども・子育て支援金",links:[["子ども・子育て支援金の仕組みと負担額｜freee", "https://www.freee.co.jp/kb/kb-trend/childcare-support-fund/"]],title:"少子化対策の負担を誰が担うか",weeks:{
+  1:{src:"子ども・子育て支援金の徴収が始まる（2026年4月）",facts:["2026年4月から、医療保険料に上乗せする形で徴収が始まった","会社員などの加入者1人当たり月額は、2026年度の約300円から2028年度に約500円へ段階的に上がる見込み","児童手当の拡充や、親の就労を問わず保育園などを使える制度などに充てられる"]},
+  2:{src:"子育て支援金の負担と給付",q:"少子化対策の費用を医療保険料で集めることで、得をする層と割を食う層は誰か？"},
+  3:{src:"少子化対策の財源をめぐる議論",q:"子どもを持たない人や高齢者に、少子化対策の負担をどこまで求めてよいか？"},
+  4:{prompt:"少子化対策の費用は、社会全体で負担すべきか。"+ASK}}},
+ {id:"t-akiya",kw:"京都市 空き家税",links:[["京都市の空き家税｜マネーポストWEB", "https://www.moneypost.jp/1014895"], ["日経コンピュータ 2026年10月1日号（空き家税の延期）", "https://xtech.nikkei.com/atcl/nxt/mag/nc/18/NC_backnumber/20261001/"]],title:"空き家に税をかける",weeks:{
+  1:{src:"京都市の「空き家税」、導入延期",facts:["京都市は、普段人が住んでいない住宅に固定資産税とは別に課税する新税を、2026年度に導入する予定だった","対象は市街化区域内の住宅で、約1万5000軒が該当するとみられる","景観のための高さ規制で住宅が不足しており、空き家を売却や賃貸に回してもらうのが狙い","税務システムの刷新が遅れ、導入が延期されたと報じられた"]},
+  2:{src:"空き家税と住宅不足",q:"空き家に課税すると、最も得をする層と、割を食う層は誰か？"},
+  3:{src:"個人の財産と自治体の課税",q:"個人の財産である家の使い方に、自治体はどこまで口を出してよいか？"},
+  4:{prompt:"空き家を減らすために、自治体は課税という手段を使うべきか。"+ASK}}},
+ {id:"t-leak",kw:"個人情報 流出 不正アクセス",links:[["タイムズカーで約660万件の情報が流出｜@IT", "https://atmarkit.itmedia.co.jp/ait/spv/2609/30/news038.html"], ["日経グループへのサイバー攻撃の報道まとめ｜ライブドアニュース", "https://news.livedoor.com/topics/keyword/29084/"]],title:"個人情報流出とサイバー攻撃",weeks:{
+  1:{src:"タイムズカーで約660万件の個人情報が流出",facts:["2026年9月、外部からの不正アクセスで約660万件のアカウント情報が取得された","退会済みの利用者の情報も含まれ、運転免許証の画像なども流出した","10月初めには日本経済新聞社もサイバー攻撃を受け、社員を装ったメール約9000件が送信された"]},
+  2:{src:"個人情報とサービスの便利さ",q:"企業に個人情報を預けて便利なサービスを使う仕組みで、得をする層と割を食う層は誰か？"},
+  3:{src:"退会者の情報保存と本人確認",q:"企業はどこまで個人情報を集め、どれだけの期間保存してよいか？"},
+  4:{prompt:"便利なサービスと個人情報の保護は、どう両立させるべきか。"+ASK}}},
+ {id:"t-agent",kw:"AIエージェント 買い物",links:[["小売334社のAIエージェント投資意向は97%｜トラベルボイス", "https://www.travelvoice.jp/20260807-160246"]],title:"AIが買い物をする時代",weeks:{
+  1:{src:"AIエージェントが買い物を代行する時代へ",facts:["国内の大手小売334社の97%が、AIが買い物を代行する仕組みへの投資を今後2年で予定している（決済大手Adyenの2026年調査）","一方で消費者の62%は、AIに買い物を任せることに抵抗を感じている","銀行やネット大手も、AIが主役の電子商取引への参入を進めている"]},
+  2:{src:"AIの買い物代行と小売・消費者",q:"AIが買い物を代行するようになると、得をする層と割を食う層は誰か？"},
+  3:{src:"AIに任せる範囲と支払いの責任",q:"AIにどこまで買い物を任せてよいか。支払いの最終判断は人がすべきか？"},
+  4:{prompt:"買い物をAIに任せる社会は、消費者にとって望ましいか。"+ASK}}},
+ {id:"t-pain",kw:"ドコモ 痛み 共有",links:[["「人の痛み」を共有する技術 ドコモ｜EE Times Japan", "https://eetimes.itmedia.co.jp/ee/spv/2510/08/news046.html"]],title:"痛みを共有する技術",weeks:{
+  1:{src:"人の「痛み」を数値化して伝える技術（NTTドコモ）",facts:["脳波から痛みの程度を数値化し、人ごとの感じ方の差を補正して他者に伝える技術","医療の診断やリハビリの支援、ゲームの没入感を高める用途が想定されている","将来は、誹謗中傷などによる心の痛みの検知も視野に入れている（現時点は体の外からの痛みのみ）"]},
+  2:{src:"痛みの数値化と医療・福祉",q:"痛みを数値で伝えられるようになると、得をする層と割を食う層は誰か？"},
+  3:{src:"痛みを体験させる技術の使い道",q:"他人の痛みを体験させる技術は、どこまで使ってよいか？"},
+  4:{prompt:"人の痛みを数値化して共有する技術は、社会を良くするか。"+ASK}}},
+ {id:"t-rehire",kw:"同一労働同一賃金 再雇用",links:[["同一労働同一賃金ガイドラインを改正、2026年10月から適用", "https://www.kaiketsu-j.com/?p=22005"], ["2026年10月の時事ニュースまとめ", "https://news-database.com/2026-10/"]],title:"定年後も働く社会の賃金",weeks:{
+  1:{src:"同一労働同一賃金のルール改正（2026年10月適用）",facts:["正社員と非正規雇用の不合理な待遇差を禁じる指針が改正され、2026年10月から適用された","ここ数年の最高裁判決の考え方が指針に盛り込まれた","定年後に再雇用した人の給料を下げる場合、その理由の説明が求められると報じられている"]},
+  2:{src:"待遇差の説明義務と企業・働く人",q:"待遇差の説明を企業に求めることで、得をする層と割を食う層は誰か？"},
+  3:{src:"定年後再雇用の賃金",q:"定年後の再雇用で、賃金をどこまで下げることが許されるか？"},
+  4:{prompt:"定年後も働き続ける人の賃金は、どのように決めるべきか。"+ASK}}}
+,
+ {id:"t-listing",kw:"上場維持基準 上場廃止",links:[["上場維持基準の経過措置終了と上場廃止｜マネーポストWEB", "https://www.moneypost.jp/1271568"], ["上場廃止銘柄一覧｜日本取引所グループ", "https://www.jpx.co.jp/listing/stocks/delisted/index.html"]],title:"上場廃止と企業の「稼ぐ力」",weeks:{
+  1:{src:"東証の上場維持基準を満たせない企業が上場廃止に（2026年10月）",facts:["東証の市場再編で既存企業に認められていた猶予（経過措置）が、2025年3月に終わった","基準を満たせない企業は原則1年の改善期間に入り、それでも達成できなければ上場廃止になる","3月決算の企業では、2026年10月に上場廃止となる計算になる","プライム市場では、市場で売買される株式の時価総額100億円以上などが基準になる"]},
+  2:{src:"上場維持基準と企業・株主",q:"上場の基準を厳しくすると、最も得をする層と、割を食う層は誰か？"},
+  3:{src:"上場の意味と、上場をやめる企業",q:"株式市場は、企業にどこまで「稼ぐ力」を求めてよいか？"},
+  4:{prompt:"株式市場は、上場企業に厳しい基準を課すべきか。"+ASK}}},
+ {id:"t-nidec",kw:"ニデック 不正会計",links:[["ニデック、5646億円赤字 監査法人「意見不表明」（共同通信）", "https://kumanichi.com/articles/2041369"]],title:"不正会計と企業の信頼",weeks:{
+  1:{src:"ニデック、5646億円の赤字。監査法人が「意見不表明」",facts:["ニデックの2026年3月期決算は、純損益が5646億円の赤字になった","不正会計をきっかけに事業の見込みを見直し、6321億円の損失を計上した","監査法人は、十分な証拠が得られないとして、決算が正しいかの判断を示さなかった（意見不表明）","創業者は2025年12月に代表取締役を辞め、社長も2026年9月に辞任した"]},
+  2:{src:"不正会計と株主・社員・取引先",q:"企業の不正会計で、最も損をするのは誰か。得をしていたのは誰か？"},
+  3:{src:"業績目標と現場へのプレッシャー",q:"会社は社員に、どこまで高い目標を求めてよいか？"},
+  4:{prompt:"企業の不正を防ぐために、最も必要なものは何か。"+ASK}}},
+ {id:"t-beer",kw:"ビール カルテル 公取委",links:[["公取委、ビール4社を強制調査（共同通信）", "https://kumanichi.com/articles/2043903"]],title:"カルテルと商品の値段",weeks:{
+  1:{src:"公取委、ビール大手4社を強制調査（2026年10月7日）",facts:["公正取引委員会は、アサヒ・キリン・サントリー・サッポロの4社に強制調査に入った","ビール類の出荷価格を上げる時期や幅を、4社で調整していた疑いがある（容疑は確定していない）","飲食料品をめぐる公取委の強制調査は初めてで、刑事告発も視野に入れている"]},
+  2:{src:"価格の調整と消費者・企業",q:"企業どうしが値上げをそろえると、得をする層と割を食う層は誰か？"},
+  3:{src:"業界の情報交換と競争のルール",q:"同じ業界の企業どうしは、どこまで情報を交換してよいか？"},
+  4:{prompt:"物価が上がる時代に、企業の値上げをどこまで社会が受け入れるべきか。"+ASK}}},
+ {id:"t-toyama",kw:"富山市 国勢調査 水増し",links:[["富山市国勢調査人口水増し疑い 地方交付税が約2億円多く交付か｜NHK", "https://news.web.nhk/newsweb/na/nd-20260930de53460"], ["総務省が富山市職員を統計法違反で告発｜解説", "https://jpjj.jp/articles/toyama-census-population-padding/"]],title:"統計の信頼と地方のお金",weeks:{
+  1:{src:"富山市、国勢調査で人口を水増しした疑い",facts:["富山市の国勢調査で、人口が2000人以上水増しされた疑いがあると報じられた","調査員が「住んでいる実態がない」とした世帯を、根拠なく人口に戻したとされる","総務省は統計法違反の疑いで市の職員を告発した","人口をもとに配られる地方交付税が、約2億円多く交付された可能性がある"]},
+  2:{src:"人口と地方交付税の仕組み",q:"人口の数字が水増しされると、得をする層と割を食う層は誰か？"},
+  3:{src:"人口減少と自治体の財政",q:"人口が減る自治体を、国はどこまでお金で支えるべきか？"},
+  4:{prompt:"人口が減る地域の暮らしを、国と自治体はどう支えるべきか。"+ASK}}},
+ {id:"t-toysrus",kw:"トイザらス ドンキ",links:[["日本トイザらス、負債132億円で倒産｜J-CAST", "https://www.j-cast.com/2026/10/09518390.html?p=all"]],title:"老舗チェーンの倒産と再生",weeks:{
+  1:{src:"日本トイザらスが民事再生法を申請、ドンキ運営会社が事業を引き継ぐ",facts:["日本トイザらスは2026年10月1日に民事再生法の適用を申請した。負債は約132億円","ドン・キホーテを運営するPPIHが事業を譲り受ける契約を結んだ","売上高はピーク時の約4割まで減り、最終赤字が8期続いていた","一方、玩具店の市場全体は拡大し、カプセルトイやトレーディングカードの店が伸びている"]},
+  2:{src:"少子化・ネット通販と大型店",q:"大型の玩具店が消えると、得をする層と割を食う層は誰か？"},
+  3:{src:"大人が楽しむ「キダルト」市場",q:"子ども向けの店が大人向けに変わることを、どこまで歓迎してよいか？"},
+  4:{prompt:"少子化の時代に、子ども向けのビジネスはどう生き残るべきか。"+ASK}}},
+ {id:"t-post",kw:"国際郵便 値上げ",links:[["日本郵便、国際郵便料金を2027年2月に改定｜LOGISTICS TODAY", "https://www.logi-today.com/1009870"], ["国際郵便料金の改定について｜日本郵便", "https://www.post.japanpost.jp/service/send/oversea/information/fee_revision_2027/"]],title:"国際郵便の値上げと公共サービス",weeks:{
+  1:{src:"国際郵便、2027年2月に値上げへ（日本郵便）",facts:["日本郵便は2026年10月9日、国際郵便の料金を2027年2月1日に引き上げると発表した","値上げは平均37%と報じられ、国際スピード郵便（EMS）はすべての重さで上がる","国際輸送費の上昇、原油高、円安が続き、自社の努力だけでは吸収できないとしている"]},
+  2:{src:"国際郵便の値上げと個人・事業者",q:"国際郵便の値上げで、最も得をする層と、割を食う層は誰か？"},
+  3:{src:"郵便を全国一律で届ける仕組み",q:"郵便のような公共サービスは、どこまで値上げを認めてよいか？"},
+  4:{prompt:"利用が減る公共サービスを、誰の負担でどこまで維持すべきか。"+ASK}}}
+,
+ {id:"t-foodtax",kw:"食料品 消費税 引き下げ",title:"食料品の消費税を下げるべきか",weeks:{
+  1:{src:"首相が所信表明、食料品の消費税を2年間1%に引き下げる方針（2026年10月）",facts:["臨時国会の所信表明演説で、首相は経済を重視する姿勢を打ち出した","食料品にかかる消費税を、2年間に限って1%に下げる減税法案の成立をめざすと報じられた","消費税は社会保障の財源にもなっている"]},
+  2:{src:"消費税減税と家計・財政",q:"食料品の消費税を下げると、最も得をする層と、割を食う層は誰か？"},
+  3:{src:"期間限定の減税と、その後",q:"物価高への対策として、税をどこまで下げてよいか？"},
+  4:{prompt:"物価が上がる中で、国は食料品の消費税を下げるべきか。"+ASK}}},
+ {id:"t-liquor",kw:"酒税 一本化 ビール 発泡酒",title:"税率をそろえることの公平さ",weeks:{
+  1:{src:"ビール類の酒税が一本化（2026年10月1日）",facts:["2026年10月から、ビール・発泡酒・新ジャンルの税率が一本化された","ビールは350mlあたり約9円の減税、発泡酒と新ジャンルは約8円の増税になった","チューハイなども約7円の増税になったと報じられた"]},
+  2:{src:"酒税の一本化と消費者・メーカー",q:"税率をそろえることで、得をする層と割を食う層は誰か？"},
+  3:{src:"税の制度と企業の商品開発",q:"税の仕組みが変わることで、企業の工夫がむだになることをどこまで認めるべきか？"},
+  4:{prompt:"同じような商品には同じ税率をかけるべきか。"+ASK}}},
+ {id:"t-kodomonisa",kw:"こどもNISA",title:"子どものうちから投資を始める",weeks:{
+  1:{src:"「こどもNISA」の事前受け付けが始まる（2027年1月開始）",facts:["0〜17歳の子どもの名義で投資でき、年60万円、最大600万円まで利益に税金がかからない","原則として12歳になるまで引き出すことはできない","2026年10月から金融機関で事前の受け付けが始まった"]},
+  2:{src:"こどもNISAと家庭の資産",q:"子ども名義の非課税投資で、最も得をする層と、割を食う層は誰か？"},
+  3:{src:"お金の教育と投資のリスク",q:"子どものお金を親が投資に回すことは、どこまで認められるか？"},
+  4:{prompt:"国は子ども向けの投資制度を広げるべきか。"+ASK}}},
+ {id:"t-prudential",kw:"プルデンシャル生命 業務停止",title:"成果主義の報酬と働く人の倫理",weeks:{
+  1:{src:"プルデンシャル生命の社員らによる金銭詐取、金融庁が業務停止命令",facts:["社員らが顧客から金銭をだまし取っていた問題で、不適切に受け取った額は約52億円と認定された","1992年以降の問題で、関係者157人が懲戒処分を受けた","会社は、成果に応じて報酬が決まる完全歩合制が原因の一つと結論づけた","金融庁は業務停止命令を出し、一定期間、保険の販売ができなくなった"]},
+  2:{src:"歩合制の報酬と社員・顧客",q:"成果だけで給料が決まる仕組みで、得をする層と割を食う層は誰か？"},
+  3:{src:"営業のノルマと不正の防止",q:"会社は社員の成果を、どこまで給料に反映させてよいか？"},
+  4:{prompt:"成果に応じた報酬は、働く人を正しい方向に動かすか。"+ASK}}},
+ {id:"t-score",kw:"バンドスコア 模倣 判決",title:"まねしてよいもの、いけないもの",weeks:{
+  1:{src:"バンドスコアの模倣に1.6億円の賠償命令が確定",facts:["音楽の楽譜（バンドスコア）をまねてネットで公開した事業者に、約1.6億円の賠償を命じる判決が確定した","楽譜そのものは著作権法の保護の対象外とされた","それでも、制作にかけた費用や労力を不当に利用したとして、民法上の不法行為が認められた"]},
+  2:{src:"模倣と作り手・利用者",q:"他人の制作物を無料で公開することで、得をする層と割を食う層は誰か？"},
+  3:{src:"参考・引用・模倣の境目",q:"他人の作ったものを参考にすることは、どこまで許されるか？"},
+  4:{prompt:"法律で守られていない努力の成果も、守られるべきか。"+ASK}}},
+ {id:"t-aibooks",kw:"AI 学習 書籍 出版",title:"AIの学習に本を使ってよいか",weeks:{
+  1:{src:"出版取次の日販、AI企業向けの書籍販売を認める見解（2026年10月）",facts:["出版物の取次大手の日販が、米AI企業アンソロピック向けの書籍販売を認める見解を示したと報じられた","AIの学習に使われるとみられている","AIの学習データと著作権をめぐっては、国内外で議論が続いている"]},
+  2:{src:"AIの学習と作家・出版社・読者",q:"本がAIの学習に使われると、得をする層と割を食う層は誰か？"},
+  3:{src:"AIの学習データと著作権",q:"AIの学習に他人の作品を使うことは、どこまで認められるか？"},
+  4:{prompt:"作家や出版社は、AIの学習に本を提供すべきか。"+ASK}}},
+ {id:"t-snsage",kw:"SNS 年齢制限 子ども",title:"子どものSNS利用を法律で制限するか",weeks:{
+  1:{src:"ドイツ、13歳未満のSNS利用を禁止する方針を閣議決定",facts:["ドイツ政府は、13歳未満の子どものSNS利用を禁止する方針を閣議決定した","2027年の施行をめざしている","子どものSNS利用を年齢で制限する動きは、他の国でも広がっている"]},
+  2:{src:"SNSの年齢制限と子ども・保護者・企業",q:"子どものSNS利用を禁止すると、得をする層と割を食う層は誰か？"},
+  3:{src:"子どもの自由と保護",q:"子どものSNS利用は、何歳から、どこまで認めるべきか？"},
+  4:{prompt:"日本も子どものSNS利用を法律で制限すべきか。"+ASK}}},
+ {id:"t-eew",kw:"緊急地震速報 誤報",title:"防災情報の信頼",weeks:{
+  1:{src:"緊急地震速報の誤報、「M9.9」と発表（2026年10月16日）",facts:["カムチャツカ付近で起きたM6.9の地震の震源と規模を誤り、「M9.9」として北海道から東海地方に緊急地震速報が出された","気象庁は速報を取り消し、システムの不具合が原因と説明した","サイバー攻撃によるものではないとしている"]},
+  2:{src:"速報の速さと正確さ",q:"緊急地震速報で「速さ」を優先すると、得をする層と割を食う層は誰か？"},
+  3:{src:"空振りと見逃し",q:"防災情報は、どこまで「空振り」を許すべきか？"},
+  4:{prompt:"誤報があっても、防災情報は速さを優先すべきか。"+ASK}}},
+ {id:"t-foreign",kw:"在留外国人 過去最多 特定技能",title:"外国人とともに暮らす社会",weeks:{
+  1:{src:"在留外国人、過去最多の428万人（2026年6月末）",facts:["2026年6月末の在留外国人は約428万人で、過去最多を更新した","総人口に占める割合は約3.5%","人手不足の分野で働く「特定技能」の人が前年より約14%増えた"]},
+  2:{src:"外国人材の受け入れと地域・企業",q:"外国人労働者が増えると、得をする層と割を食う層は誰か？"},
+  3:{src:"受け入れの条件と支援",q:"外国人を受け入れるとき、国や地域はどこまで支援の責任を負うべきか？"},
+  4:{prompt:"日本は外国人労働者の受け入れを広げるべきか。"+ASK}}},
+ {id:"t-todai",kw:"東大 総長選考",title:"大学のトップはどう選ぶべきか",weeks:{
+  1:{src:"東京大学の次期総長選考、教職員有志が説明を求める要望書",facts:["東京大学の次期総長に、教職員による意向投票で2位だった教授が選ばれた","選考側は「総合的な判断」によるものと説明した","教職員の有志523人が、選考の経緯の説明を求める要望書を出した"]},
+  2:{src:"大学の意思決定と教職員・学生",q:"大学のトップを外部を含む会議で選ぶと、得をする層と割を食う層は誰か？"},
+  3:{src:"投票結果と選考の判断",q:"組織のリーダー選びで、投票の結果をどこまで重く見るべきか？"},
+  4:{prompt:"大学のトップは、教職員の投票で選ぶべきか。"+ASK}}},
+ {id:"t-icc",kw:"国際刑事裁判所 制裁",title:"国際裁判所と大国",weeks:{
+  1:{src:"ノーベル平和賞に元ICC判事、米国はICCを制裁対象に",facts:["2026年のノーベル平和賞に、国際刑事裁判所（ICC）の元判事が選ばれた","米国の大統領やイスラエル外務省は、この授賞を批判した","米政府はICCそのものを制裁の対象にし、日本政府は「深い懸念」を表明した","ICCの所長は日本人の赤根智子氏が務めている"]},
+  2:{src:"国際刑事裁判所と各国",q:"国際刑事裁判所の力が強まると、得をする層と割を食う層は誰か？"},
+  3:{src:"国の主権と国際的な裁き",q:"国際的な裁判所は、国の指導者をどこまで裁いてよいか？"},
+  4:{prompt:"日本は国際刑事裁判所をどこまで支えるべきか。"+ASK}}},
+ {id:"t-nobel",kw:"ノーベル化学賞 基礎研究",title:"すぐに役立たない研究にお金を出すか",weeks:{
+  1:{src:"ノーベル化学賞に東京理科大の硤合憲三名誉教授",facts:["2026年のノーベル化学賞に、東京理科大学の硤合憲三名誉教授が選ばれた","受賞理由となった「硤合反応」は、医薬品の製造にも関わる発見とされる","日本の研究力の低下や、研究費の配り方をめぐる議論が続いている"]},
+  2:{src:"研究費の配分と研究者",q:"「役に立つ研究」に研究費を集中させると、得をする層と割を食う層は誰か？"},
+  3:{src:"基礎研究と応用研究",q:"国は、成果がすぐに見えない研究にどこまでお金を出すべきか？"},
+  4:{prompt:"国の研究費は、成果の見えやすい研究に重点的に配るべきか。"+ASK}}},
+ {id:"t-nennai",kw:"年内入試 面接",title:"大学入試の「年内入試」",weeks:{
+  1:{src:"大学の「年内入試」で面接が必須に。私立大は学生確保へ戦略転換",facts:["総合型選抜や学校推薦型選抜など、年内に合否が決まる入試の比重が高まっている","年内入試で面接などを必須にする動きが報じられた","2027年度の国公立大の募集人員は約13万1000人で、前年度より約500人増える"]},
+  2:{src:"年内入試の広がりと受験生・高校・大学",q:"年内入試が広がると、得をする層と割を食う層は誰か？"},
+  3:{src:"学力試験と人物評価",q:"大学入試で、学力試験以外の評価をどこまで重く見てよいか？"},
+  4:{prompt:"大学入試は、学力試験と人物評価のどちらを重視すべきか。"+ASK}}},
+ {id:"t-france",kw:"フランス 高校生 デモ 教育",title:"若者は声をどう上げるか",weeks:{
+  1:{src:"フランスで高校生らの教育環境をめぐるデモが全国に拡大",facts:["フランスで、教育環境への不満を訴える高校生らのデモがパリから全国に広がった","休校や、参加者の逮捕が続いていると報じられた","日本では、18歳から選挙で投票できる"]},
+  2:{src:"若者の抗議と社会",q:"若者が街頭で抗議の声を上げることで、得をする層と割を食う層は誰か？"},
+  3:{src:"抗議の手段と社会のルール",q:"若者が意見を伝える手段として、どこまでの行動が認められるか？"},
+  4:{prompt:"日本の高校生は、社会への意見をどのように伝えるべきか。"+ASK}}},
+ {id:"t-esports",kw:"eスポーツ アジア大会",title:"eスポーツはスポーツか",weeks:{
+  1:{src:"アジア大会閉幕、eスポーツで11歳の日本人が金メダル",facts:["愛知・名古屋で開かれたアジア大会が閉幕し、日本のメダル数は269個で過去最多となった","eスポーツでは11歳の日本人選手が金メダルを獲得し、大会史上最年少のメダリストになった","一方で、閉会式の空席が目立ったとも報じられた"]},
+  2:{src:"eスポーツの広がりと選手・保護者・学校",q:"eスポーツが正式なスポーツとして広がると、得をする層と割を食う層は誰か？"},
+  3:{src:"子どもとゲーム",q:"子どもがゲームに打ち込むことを、社会はどこまで応援すべきか？"},
+  4:{prompt:"学校は、eスポーツを部活動として認めるべきか。"+ASK}}},
+ {id:"t-snspost",kw:"SNS 不適切投稿 懲戒",title:"SNSの投稿と仕事の責任",weeks:{
+  1:{src:"病院の看護師がSNSに不適切投稿、懲戒解雇",facts:["千葉県の病院の看護師2人が、勤務中に患者を撮影し、暴言とともにSNSに投稿していた","病院は2人を懲戒解雇した","職場での撮影や投稿をめぐる問題は、さまざまな職場で起きている"]},
+  2:{src:"SNS投稿と職場・利用者",q:"職場のSNS投稿を厳しく制限すると、得をする層と割を食う層は誰か？"},
+  3:{src:"私的な投稿と仕事の責任",q:"会社は、社員の私的なSNS投稿にどこまで口を出してよいか？"},
+  4:{prompt:"働く人のSNS利用に、職場はどこまでルールを設けるべきか。"+ASK}}},
+ {id:"t-will",kw:"遺言 寄付 自治体",title:"財産を社会にどう残すか",weeks:{
+  1:{src:"全財産13億円を自治体に寄付する遺言、最高裁が有効と判断",facts:["和歌山県の資産家が残した、全財産約13億円を地元の自治体に寄付するという遺言について、最高裁が有効と認めた","2018年から続いていた争いに区切りがついた","遺言で財産を社会に寄付する「遺贈寄付」への関心が高まっている"]},
+  2:{src:"遺贈寄付と家族・地域",q:"財産を家族ではなく社会に寄付すると、得をする層と割を食う層は誰か？"},
+  3:{src:"遺言の自由と家族の取り分",q:"財産の行き先は、本人の意思でどこまで自由に決めてよいか？"},
+  4:{prompt:"人は自分の財産を、家族と社会のどちらに残すべきか。"+ASK}}},
+ {id:"t-newuniv",kw:"大学 新設 少子化",title:"少子化の時代に大学をつくる",weeks:{
+  1:{src:"2028年度の大学新設へ、認可申請が相次ぐ",facts:["2028年度の開設をめざし、新しい大学の設置認可の申請が出されている","18歳人口は減り続けており、定員を満たせない私立大学も多い","一方で、2027年度の国公立大の募集人員は前年度より約500人増える"]},
+  2:{src:"大学の新設と受験生・地域・既存の大学",q:"少子化の中で大学が新しくできると、得をする層と割を食う層は誰か？"},
+  3:{src:"大学の数と質",q:"国は大学の新設や存続を、どこまで規制すべきか？"},
+  4:{prompt:"少子化の時代に、日本の大学の数は減らすべきか。"+ASK}}},
+ {id:"t-assembly",kw:"県議会 百条委員会 海外視察",title:"地方議会のお金と監視",weeks:{
+  1:{src:"福岡県議会、議長ポストをめぐる疑惑で百条委員会を設置",facts:["福岡県議会は、議長ポストをめぐる金銭の授受の疑惑や、海外視察費の問題を調べる百条委員会の設置を可決した","百条委員会は、証人に出頭を求めるなど強い調査権限をもつ","調査期間は2027年2月末までとされた"]},
+  2:{src:"議員の活動費と住民",q:"議員の視察や活動に税金を使うことで、得をする層と割を食う層は誰か？"},
+  3:{src:"議員の活動の公開",q:"議員の活動費の使い道は、どこまで公開されるべきか？"},
+  4:{prompt:"住民は地方議会を、どのように監視すべきか。"+ASK}}},
+ {id:"t-budget",kw:"農水相 発言 道路予算 撤回",title:"予算の配り方と政治の公平さ",weeks:{
+  1:{src:"農水相、選挙で支持しなかった自治体の予算を「カット」と発言し撤回、その後更迭",facts:["農林水産大臣が、衆院選で支持しなかった自治体の道路予算を「大幅にカット」すると発言したと報じられた","大臣は発言を撤回し、国交省の調査では圧力は確認されなかった","その後、別の疑惑も浮上し、大臣は更迭された"]},
+  2:{src:"予算の配分と自治体・住民",q:"政治家の判断で予算の配り方が変わると、得をする層と割を食う層は誰か？"},
+  3:{src:"選挙と行政の中立",q:"政治家は、予算の配り方にどこまで関わってよいか？"},
+  4:{prompt:"国の予算は、どのような基準で地域に配られるべきか。"+ASK}}}
+];
+const PRESET_IDS=new Set(PRESETS.map(p=>p.id));
+const $=id=>document.getElementById(id);
+const esc=t=>String(t??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+function toast(t){$("toast").textContent=t;clearTimeout(toast.t);toast.t=setTimeout(()=>$("toast").textContent="",2600)}
+const today=()=>{const d=new Date();return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")}`};
+
+// ---------- 状態 ----------
+let sets=store.get("fk2-sets",null);
+const hasInput=s=>[1,2,3,4].some(n=>Object.values(s.weeks[n].v||{}).some(x=>(x||"").trim()));
+if(!sets){sets=PRESETS.map(p=>blankSet(p.title,p))}
+else{sets=sets.filter(s=>!(s.id==="sample-rate"&&!hasInput(s)));PRESETS.forEach(p=>{if(!sets.find(s=>s.id===p.id))sets.push(blankSet(p.title,p))})}
+sets.forEach(x=>{const p=PRESETS.find(y=>y.id===x.id);if(!p)return;const b=blankSet(p.title,p);x.preset=true;x.example=!!p.example;x.title=p.title;x.kw=p.kw||"";x.links=p.links||[];
+  [1,2,3,4].forEach(n=>{const t=x.weeks[n],f=b.weeks[n];t.src=f.src;t.q=f.q;t.facts=f.facts;t.prompt=f.prompt;if(p.example)t.v=f.v})});
+store.set("fk2-sets",sets);
+let cur=store.get("fk2-cur",sets[0].id);
+if(!sets.find(s=>s.id===cur))cur=sets[0].id;
+let week=store.get("fk2-week",1);
+function blankSet(title,preset){
+  const s={id:preset?preset.id:"set-"+Date.now(),title,created:preset?"":today(),example:!!preset?.example,preset:!!preset,kw:preset?.kw||"",links:preset?.links||[],weeks:{}};
+  [1,2,3,4].forEach(n=>{const p=preset?.weeks?.[n]||{};s.weeks[n]={src:p.src||"",q:p.q||WEEKS[n].q||"",facts:p.facts||[],prompt:p.prompt||"",v:{...(p.v||{})},date:""}});
+  if(!s.weeks[4].prompt)s.weeks[4].prompt=`「${title}」について、第1〜3週で扱った事実と立場をふまえ、あなたの考えを400字以内で述べよ。その際、自分の探究テーマとの関係にも触れること。`;
+  return s;
+}
+const S=()=>sets.find(s=>s.id===cur);
+function persist(){store.set("fk2-sets",sets);store.set("fk2-cur",cur);store.set("fk2-week",week)}
+const prof=()=>store.get("fk2-profile",{name:"",cls:"",no:"",theme:""});
+
+// ---------- プロフィール ----------
+(function(){const p=prof();$("p-name").value=p.name;$("p-class").value=p.cls;$("p-no").value=p.no;$("p-theme").value=p.theme;if(!p.name)$("profile").open=true;
+ ["p-name","p-class","p-no","p-theme"].forEach(id=>$(id).addEventListener("input",()=>{store.set("fk2-profile",{name:$("p-name").value.trim(),cls:$("p-class").value.trim(),no:$("p-no").value.trim(),theme:$("p-theme").value.trim()})}))})();
+
+// ---------- セット選択 ----------
+$("new-cancel").onclick=()=>{$("new-set").hidden=true;$("new-title").value=""};
+$("new-ok").onclick=()=>{const t=$("new-title").value.trim();if(!t){$("new-title").focus();return}const s=blankSet(t);sets.unshift(s);persist();$("new-set").hidden=true;$("new-title").value="";openSet(s.id)};
+
+// ---------- 進み具合 ----------
+function weekDone(s,n){const v=s.weeks[n].v||{};if(n===4)return (v.essay||"").replace(/\s/g,"").length>=Math.round(LIMIT*.6);return WEEKS[n].fields.filter(f=>(v[f[0]]||"").trim()).length>=Math.ceil(WEEKS[n].fields.length*.6)}
+function firstOpenWeek(s){for(const n of [1,2,3,4])if(!weekDone(s,n))return n;return 4}
+
+function renderWeeks(){
+  const s=S();
+  $("weeks").innerHTML=[1,2,3,4].map(n=>`<button class="wk c${n}" data-w="${n}" aria-current="${n===week}"><b>WEEK ${n}</b><span>${WEEKS[n].short}</span><small>${weekDone(s,n)?'<span class="done">記入済み</span>':(s.weeks[n].date?"記入中":"未記入")}</small></button>`).join("");
+}
+$("weeks").addEventListener("click",e=>{const b=e.target.closest(".wk");if(!b)return;week=+b.dataset.w;persist();renderAll()});
+
+// ---------- 題材 ----------
+function linksHtml(s){
+  const kw=s.kw||s.title;
+  return `<div><a class="btn nikkei" href="https://www.nikkei.com/search?keyword=${encodeURIComponent(kw)}" target="_blank" rel="noopener">日経電子版で記事を探す</a></div>`;
+}
+function renderBrief(){
+  const s=S(),w=s.weeks[week],W=WEEKS[week],lock=s.preset;
+  const col=`var(--w${week})`,soft=`var(--w${week}-soft)`;
+  const lockNote=lock?`<p class="hint">このテーマの題材と問いは先生が設定したもので、変更できません。</p>`:"";
+  if(week===4){
+    $("brief").innerHTML=`<span class="chip" style="color:${col};background:${soft}">WEEK 4 ｜ 小論文（${LIMIT}字）</span>
+     <div class="q-box" style="color:${col};background:${soft}"><span class="lbl" style="color:${col}">設問</span>${lock?`<p class="fixed-q">${esc(w.prompt)}</p>`:`<textarea id="b-prompt" aria-label="設問" style="background:transparent;border:0;padding:0;min-height:72px;font:700 1rem var(--f-display);color:var(--ink)">${esc(w.prompt)}</textarea>`}</div>
+     <p class="hint">型：①主張（条件付きの結論）→ ②根拠 → ③反論と応答 → ④結論と探究への接続。左の材料は第1〜3週の自分の記入です。</p>`;
+    if(!lock)$("b-prompt").addEventListener("input",e=>{w.prompt=e.target.value;touch()});
+    return;
+  }
+  $("brief").innerHTML=`<span class="chip" style="color:${col};background:${soft}">WEEK ${week} ｜ ${W.role} ｜ ${W.lens}</span>
+   ${lock?`<div><span class="lbl">今週の記事・題材</span><p class="fixed-src">${esc(w.src)}</p></div>`:`<div><label class="lbl" for="b-src">今週の記事・題材（スライドを見て入力）</label><input type="text" id="b-src" value="${esc(w.src)}" placeholder="例：日経電子版の記事タイトル"></div>`}
+   <div class="q-box" style="color:${col};background:${soft}">${lock?`<span class="lbl" style="color:${col}">今週の問い</span><p class="fixed-q">${esc(w.q)}</p>`:`<label class="lbl" for="b-q" style="color:${col}">今週の問い</label><input type="text" id="b-q" value="${esc(w.q)}">`}</div>
+   ${w.facts.length?`<div><span class="lbl">押さえておきたい事実</span><ul class="facts">${w.facts.map(f=>`<li>${esc(f)}</li>`).join("")}</ul></div>`:""}${linksHtml(s)}${lockNote}`;
+  if(!lock){$("b-src").addEventListener("input",e=>{w.src=e.target.value;touch()});$("b-q").addEventListener("input",e=>{w.q=e.target.value;touch()})}
+}
+
+// ---------- 記入欄 ----------
+function helpBlock(k,n){
+  const H=HELP[n]?.[k];if(!H)return "";
+  const ex=!S().example?(PRESETS[0].weeks[n]?.v?.[k]||"").trim():"";
+  return `<p class="desc">${esc(H.d)}</p>
+   <div class="hintbox" id="hint-${k}" hidden><b>つまずいたら</b><ul>${H.h.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>${ex?`<div class="ex"><b>記入例（テーマ「金利のある世界」）</b><p>${esc(ex)}</p></div>`:""}</div>`;
+}
+function fieldHtml(k,l,cls,n,ph=""){
+  return `<div class="${cls}"><div class="fhead"><label class="lbl" for="f-${k}">${l}</label><button type="button" class="hint-btn" data-hint="${k}" aria-expanded="false" aria-controls="hint-${k}">ヒント</button></div>${helpBlock(k,n)}<textarea id="f-${k}" data-k="${k}" placeholder="${esc(ph)}" ${S().example?"readonly":""}>${esc(S().weeks[n].v[k]||"")}</textarea></div>`;
+}
+function renderWork(){
+  const s=S(),w=s.weeks[week],v=w.v;
+  const goal=(s.example?`<p class="ex-note">これは記入例です。書き方の見本として読むためのもので、書き換えはできません。自分で書くときはTOPから別のテーマを選んでください。</p>`:"")+`<div class="goal"><b>この週でやること</b><p>${esc(GOAL[week])}</p></div>`;
+  if(week<4){
+    $("work").innerHTML=goal+`<div class="fields">${WEEKS[week].fields.map(([k,l,wide])=>fieldHtml(k,l,wide?"wide":"",week)).join("")}</div>`;
+  }else{
+    const mat=[[1,"fact","第1週 事実"],[1,"issue","第1週 論点"],[2,"axis","第2週 対立軸"],[2,"stance","第2週 自分の立場"],[3,"line","第3週 自分の線"],[3,"counter","第3週 反対側の主張"],[3,"reply","第3週 応答"]];
+    const EH=HELP[4].essay;
+    $("work").innerHTML=goal+`<div class="essay-grid">
+      <aside class="material"><span class="lbl">材料（第1〜3週の自分の記入）</span>${mat.map(([n,k,l])=>`<div class="mat c${n}"><h4>${l}</h4><p>${esc((s.weeks[n].v[k]||"").trim()||"（未記入）")}</p></div>`).join("")}</aside>
+      <div style="display:flex;flex-direction:column;gap:12px;min-width:0">
+        <span class="lbl">構成メモ（2分）</span>
+        <div class="memo">${MEMO.map(([k,l,h])=>fieldHtml(k,l,"",4,h)).join("")}</div>
+        <div class="fhead"><label class="lbl" for="essay">本文（${LIMIT}字以内）</label><span style="display:flex;gap:10px;align-items:baseline"><span class="count" id="count"></span><button type="button" class="hint-btn" data-hint="essay" aria-expanded="false" aria-controls="hint-essay">ヒント</button></span></div>
+        <p class="desc">${esc(EH.d)}</p>
+        <div class="hintbox" id="hint-essay" hidden><b>つまずいたら</b><ul>${EH.h.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>${!s.example?`<div class="ex"><b>記入例の第1段落（テーマ「金利のある世界」）</b><p>${esc(PRESETS[0].weeks[4].v.essay.split("\n")[0])}</p></div>`:""}</div>
+        <textarea id="essay" data-k="essay" placeholder="ここに本文を書く。" ${s.example?"readonly":""}>${esc(v.essay||"")}</textarea>
+      </div></div>`;
+    updateCount();
+  }
+  $("work").querySelectorAll("textarea[data-k]").forEach(t=>t.addEventListener("input",e=>{v[e.target.dataset.k]=e.target.value;if(e.target.id==="essay")updateCount();touch()}));
+  $("work").querySelectorAll(".hint-btn").forEach(b=>b.addEventListener("click",()=>{const box=$("hint-"+b.dataset.hint),open=box.hidden;box.hidden=!open;b.setAttribute("aria-expanded",open);b.textContent=open?"ヒントを閉じる":"ヒント"}));
+}
+const charLen=t=>(t||"").replace(/\r?\n/g,"").length;
+function updateCount(){const n=charLen($("essay").value),c=$("count");c.textContent=`${n} / ${LIMIT}字`;c.className="count"+(n>LIMIT?" over":n>=LIMIT*.8?" ok":"");if(n>LIMIT)c.textContent+=`（${n-LIMIT}字オーバー）`}
+let saveT;
+function touch(){const w=S().weeks[week];if(!w.date)w.date=today();clearTimeout(saveT);saveT=setTimeout(()=>{persist();renderWeeks();updatePdfBar()},400)}
+
+// ---------- TOP ----------
+let downloads=null;
+(async()=>{try{downloads=await window.claude?.use?.("downloads")}catch(e){downloads=null}
+  if(!downloads&&!window.claude){downloads={save:({filename,data})=>new Promise(res=>{const u=URL.createObjectURL(data),a=document.createElement("a");a.href=u;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);res({status:"saved"})})}}
+  renderTop();updatePdfBar()})();
+function card(s){
+  const done=[1,2,3,4].map(n=>weekDone(s,n)),nd=done.filter(Boolean).length,started=hasInput(s);
+  const st=s.example?'<span class="st ex">記入例</span>':isComplete(s)?'<span class="st fin">完成</span>':started?`<span class="st go">取り組み中 ${nd}/4週</span>`:'<span class="st">未着手</span>';
+  const actions=[];
+  if(isComplete(s)&&!s.example&&downloads)actions.push('<button class="btn" data-act="pdf">PDFを書き出す</button>');
+  if(!s.preset)actions.push('<button class="btn danger" data-act="del">削除</button>');
+  else if(started&&!s.example)actions.push('<button class="btn ghost" data-act="del">記入を消す</button>');
+  return `<div class="tcard" role="button" tabindex="0" data-id="${esc(s.id)}">${st}<h3>${esc(s.title)}</h3><p class="src">${esc(s.weeks[1].src||"題材は先生の指示に合わせて入力します")}</p><div class="bar">${done.map((d,i)=>`<i class="${d?"on"+(i+1):""}"></i>`).join("")}</div>${actions.length?`<div class="card-actions">${actions.join("")}<span class="toast" data-msg></span></div>`:""}</div>`;
+}
+function renderTop(){
+  const going=sets.filter(s=>!s.example&&(hasInput(s)||!s.preset));
+  const ex=sets.filter(s=>s.example);
+  const rest=sets.filter(s=>s.preset&&!s.example&&!hasInput(s));
+  $("top-lists").innerHTML=
+   (going.length?`<div><div class="list-h"><h2>取り組み中</h2><span>${going.length}件</span></div><div class="tgrid">${going.map(card).join("")}</div></div>`:"")+
+   `<div><div class="list-h"><h2>テーマを選ぶ</h2><span>${rest.length+ex.length}本</span></div><div class="tgrid">${ex.map(card).join("")}${rest.map(card).join("")}<button class="tcard add" id="add-card">＋ 先生が出したテーマで始める</button></div></div>`;
+}
+$("top-lists").addEventListener("click",async e=>{
+  if(e.target.closest("#add-card")){$("new-set").hidden=false;$("new-title").focus();return}
+  const c=e.target.closest(".tcard");if(!c)return;const id=c.dataset.id,s=sets.find(x=>x.id===id);const b=e.target.closest("button");
+  if(!b){openSet(id);return}
+  const msg=c.querySelector("[data-msg]");e.stopPropagation();
+  if(b.dataset.act==="pdf"){b.disabled=true;msg.textContent="作成中…";try{await makePdf(s);msg.textContent="保存しました"}catch(err){msg.textContent=err?.code==="declined"?"やめました":"保存できませんでした"}b.disabled=false}
+  if(b.dataset.act==="del"){b.closest(".card-actions").innerHTML=`<span class="confirm">${s.preset?"記入を消しますか？":"このテーマを削除しますか？"} <button class="btn danger" data-act="yes">${s.preset?"消す":"削除"}</button><button class="btn ghost" data-act="no">やめる</button></span>`}
+  if(b.dataset.act==="no")renderTop();
+  if(b.dataset.act==="yes"){if(s.preset){const p=PRESETS.find(x=>x.id===id);sets[sets.indexOf(s)]=blankSet(p.title,p)}else sets=sets.filter(x=>x.id!==id);persist();renderTop()}
+});
+$("top-lists").addEventListener("keydown",e=>{if((e.key==="Enter"||e.key===" ")&&e.target.classList?.contains("tcard")&&e.target.dataset.id){e.preventDefault();openSet(e.target.dataset.id)}});
+function openSet(id){cur=id;week=firstOpenWeek(S());persist();$("view-top").hidden=true;$("view-set").hidden=false;renderAll();window.scrollTo(0,0)}
+function goTop(){persist();$("view-set").hidden=true;$("view-top").hidden=false;renderTop();window.scrollTo(0,0)}
+$("back").onclick=goTop;
+function readiness(s){const n=charLen(s.weeks[4].v.essay);return [["第1週を記入",weekDone(s,1)],["第2週を記入",weekDone(s,2)],["第3週を記入",weekDone(s,3)],[`小論文 ${Math.round(LIMIT*.8)}字以上（いま${n}字）`,n>=LIMIT*.8],[`${LIMIT}字以内`,n>0&&n<=LIMIT]]}
+const isComplete=s=>readiness(s).every(r=>r[1]);
+function updatePdfBar(){
+  const f=$("finish");if(!f)return;const s=S();f.hidden=week!==4;if(week!==4)return;
+  const r=readiness(s),ok=r.every(x=>x[1]),left=r.filter(x=>!x[1]).length;
+  $("checks").innerHTML=r.map(([l,v])=>`<li class="${v?"ok":""}">${esc(l)}</li>`).join("");
+  f.classList.toggle("done",ok);
+  $("finish-title").textContent=ok?"完成です":"完成チェック";
+  $("finish-sub").textContent=ok?"4週分がそろいました。成果レポートをPDFで書き出して提出してください。":`すべてそろうと、成果レポートをPDFで書き出せます（残り${left}項目）。`;
+  $("pdf-btn").disabled=!ok||!downloads;
+  if(ok&&!downloads)$("pdf-msg").textContent="この画面ではPDF保存が使えません。Claudeのアプリかブラウザで開いてください。";
+}
+$("pdf-btn").onclick=async()=>{const b=$("pdf-btn"),m=$("pdf-msg");b.disabled=true;m.textContent="PDFを作成中…";try{await makePdf(S());m.textContent="保存しました"}catch(err){m.textContent=err?.code==="declined"?"保存をやめました":"保存できませんでした。もう一度お試しください"}b.disabled=false};
+
+// ---------- PDF ----------
+const COL={1:["#1b2d55","#eef1f7"],2:["#2e5c9e","#edf3fb"],3:["#5b7db8","#f1f4fa"],4:["#a87a22","#fbf5e8"]};
+const val=t=>{t=(t||"").trim();return t?`<div class="v">${esc(t)}</div>`:`<div class="v empty">（未記入）</div>`};
+function pageFrame(inner,n,total,s,cls=""){return `<div class="pg ${cls}"><div class="run"><span>複眼思考トレーニング｜成果レポート</span><span>${esc(s.title)}</span></div>${inner}<div class="foot"><span>朝礼 × 日経電子版</span><span><b>${n}</b> / ${total}</span></div></div>`}
+function coverPage(s,p){
+  const dates=[1,2,3,4].map(n=>s.weeks[n].date).filter(Boolean);
+  const period=dates.length?`${dates[0]} 〜 ${dates[dates.length-1]}`:"—";
+  return `<div class="pg cover"><div class="cv-top">
+    <div class="cv-ring" style="width:330px;height:330px;right:-40px;top:-60px;border-color:#3b5a8c"></div>
+    <div class="cv-ring" style="width:330px;height:330px;right:-150px;top:40px;border-color:#5b7db8"></div>
+    <div class="lab">MULTI-PERSPECTIVE THINKING ｜ REPORT</div>
+    <div style="font-size:12px;color:#8fb4ea;font-weight:700;letter-spacing:.12em">複眼思考トレーニング 成果レポート</div>
+    <h1>${esc(s.title)}</h1>
+    <div class="sub">日本経済新聞電子版の記事を素材に、4週間かけて一つのテーマを「事実 → 利害 → 線引き → 自分の結論」の順で掘り下げた記録です。</div>
+  </div>
+  <div class="cv-body">
+    <div class="cv-info">
+      <div class="k">氏名</div><div style="font-family:Murecho,sans-serif;font-weight:700;font-size:17px">${esc(p.name)||"　"}</div>
+      <div class="k">クラス・番号</div><div>${esc(p.cls)||"—"}　${p.no?esc(p.no)+"番":""}</div>
+      <div class="k">探究テーマ</div><div>${esc(p.theme)||"—"}</div>
+      <div class="k">実施期間</div><div style="font-family:'IBM Plex Mono',monospace">${period}</div>
+    </div>
+    ${(s.weeks[4].v.m1||"").trim()?`<div class="cv-abs"><div class="k">わたしの結論（要旨）</div><div class="v">${esc(s.weeks[4].v.m1.trim())}</div></div>`:""}
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="eyebrow" style="color:#7a8592">4 WEEKS ｜ 構成</div>
+      <div class="cv-flow">${[1,2,3,4].map(n=>`<div class="cv-step" style="border-color:${COL[n][0]}"><b style="color:${COL[n][0]}">WEEK ${n}</b><span>${WEEKS[n].role}</span><small>${WEEKS[n].lens}</small></div>`).join("")}</div>
+    </div>
+    <div class="foot"><span>朝礼 × 日経電子版</span><span>作成日 ${today()}</span></div>
+  </div></div>`;
+}
+function weekSection(s,n){
+  const w=s.weeks[n],W=WEEKS[n],[c,soft]=COL[n],v=w.v;
+  const fl=W.fields.filter(f=>f[0]!=="stance").map(f=>[...f]);
+  const halves=fl.filter(f=>!f[2]);if(halves.length%2===1)halves[halves.length-1][2]=true;
+  const blocks=fl.map(([k,l,wide])=>`<div class="blk ${wide?"wide":""}"><div class="k"><i style="background:${c}"></i>${l}</div>${val(v[k])}</div>`).join("");
+  const stance=n===2?`<div class="stance" style="border-color:${c}"><div class="k" style="color:${c}">この週の着地 ｜ 現時点の自分の立場</div><div class="v">${esc((v.stance||"").trim()||"（未記入）")}</div></div>`:"";
+  return `<section class="sec">
+    <div class="wkhead"><div class="wknum" style="color:${c}">0${n}</div><div class="wkmeta"><div class="eyebrow" style="color:${c}">WEEK ${n} ｜ ${W.lens}</div><h2>${W.role}</h2></div><div class="wkdate">${w.date||""}</div></div>
+    <div class="qcard" style="background:${soft};border-left:4px solid ${c}">
+      <div class="src"><span class="t" style="color:${c}">題材</span>${esc(w.src)||"—"}</div>
+      <div class="q"><span class="t" style="color:${c}">問い</span>${esc(w.q)}</div>
+    </div>
+    <div class="grid">${blocks}</div>${stance}</section>`;
+}
+function essaySection(s){
+  const w=s.weeks[4],v=w.v,n=charLen(v.essay),c=COL[4][0];
+  return `<section class="sec">
+    <div class="wkhead"><div class="wknum" style="color:${c}">04</div><div class="wkmeta"><div class="eyebrow" style="color:${c}">WEEK 4 ｜ 小論文</div><h2>自分の結論を書く</h2></div><div class="wkdate">${w.date||""}</div></div>
+    <div class="prompt"><div class="t">設問</div><div class="q">${esc(w.prompt)}</div></div>
+    <div class="memo4">${MEMO.map(([k,l])=>`<div><b>${l}</b>${esc((v[k]||"").trim())}</div>`).join("")}</div>
+    <div class="essay">${esc((v.essay||"").trim())||"（未記入）"}</div>
+    <div class="ecount"><span>本文（${LIMIT}字以内）</span><span><b>${n}</b> 字</span></div></section>`;
+}
+function pairPage(s,a,b,pn,tot){
+  return pageFrame(`${a===1?weekSection(s,1):weekSection(s,3)}<div class="sec-rule"></div>${a===1?weekSection(s,2):essaySection(s)}`,pn,tot,s,"pair");
+}
+async function makePdf(s){
+  if(!window.html2canvas||!window.jspdf)throw {code:"lib"};
+  try{await document.fonts.ready}catch(e){}
+  const p=prof(),tot=3;
+  const pages=[coverPage(s,p),pairPage(s,1,2,2,tot),pairPage(s,3,4,3,tot)];
+  const paper=$("paper");const {jsPDF}=window.jspdf;const pdf=new jsPDF({unit:"mm",format:"a4",compress:true});
+  for(let i=0;i<pages.length;i++){
+    paper.innerHTML=pages[i];const el=paper.firstElementChild;
+    const canvas=await html2canvas(el,{scale:2,backgroundColor:"#ffffff",useCORS:true,logging:false,windowWidth:794});
+    const img=canvas.toDataURL("image/jpeg",0.92);
+    const ratio=canvas.height/canvas.width, hmm=210*ratio;
+    if(i>0)pdf.addPage();
+    if(hmm<=297.5)pdf.addImage(img,"JPEG",0,0,210,hmm);
+    else{const w=297/ratio;pdf.addImage(img,"JPEG",(210-w)/2,0,w,297)}
+  }
+  paper.innerHTML="";
+  const blob=pdf.output("blob");
+  const name=`複眼レポート_${s.title}_${p.name||"氏名未入力"}.pdf`.replace(/[\\/:*?"<>|]/g,"");
+  return downloads.save({filename:name,data:blob});
+}
+
+// ---------- タブ ----------
+function renderAll(){const s=S();$("set-name").textContent=s.title;$("set-kind").textContent=s.example?"記入例のテーマ":"テーマ";renderWeeks();renderBrief();renderWork();updatePdfBar()}
+renderTop();
+</script>
+
+</body>
+</html>
